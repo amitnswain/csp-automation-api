@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: REST API for managing IT support tickets with in-memory storage.
 servers:
-  - url: http://localhost:3000
+  - url: https://it-support-system-yf51.onrender.com
 tags:
   - name: Tickets
     description: Ticket operations
