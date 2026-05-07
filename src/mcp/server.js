@@ -1,4 +1,4 @@
-const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp");
+const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
 const { ApiError } = require("../errors");
 const { TICKET_STATUSES } = require("../constants");
 const {

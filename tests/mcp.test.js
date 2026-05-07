@@ -1,6 +1,6 @@
 const request = require("supertest");
-const { Client } = require("@modelcontextprotocol/sdk/client");
-const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp");
+const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
+const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 const app = require("../src/app");
 const { resetStore } = require("../src/store/ticketStore");
 

@@ -1,5 +1,5 @@
 const express = require("express");
-const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp");
+const { StreamableHTTPServerTransport } = require("@modelcontextprotocol/sdk/server/streamableHttp.js");
 const { createMcpServer } = require("./server");
 
 const router = express.Router();
