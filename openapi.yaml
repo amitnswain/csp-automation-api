@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: IT Support Ticket API
+  version: 1.0.0
+  description: REST API for managing IT support tickets with in-memory storage.
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: Tickets
+    description: Ticket operations
+paths:
+  /tickets:
+    post:
+      tags:
+        - Tickets
+      summary: Create a new ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTicketRequest"
+            example:
+              title: Laptop not booting
+              description: Device is stuck on BIOS screen.
+              requester: alice.ng
+      responses:
+        "201":
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags:
+        - Tickets
+      summary: List tickets
+      description: Returns all tickets, optionally filtered by status and/or search keyword.
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            $ref: "#/components/schemas/TicketStatus"
+          description: Filter by ticket status.
+        - in: query
+          name: search
+          required: false
+          schema:
+            type: string
+          description: Case-insensitive search across title and description.
+      responses:
+        "200":
+          description: Ticket list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tickets/{id}:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+      responses:
+        "200":
+          description: Ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tickets/{id}/status:
+    patch:
+      tags:
+        - Tickets
+      summary: Update ticket status
+      description: |
+        Updates only the status field. Allowed values are open, in_progress, resolved, closed.
+        Transition rules:
+        - open -> in_progress | resolved | closed
+        - in_progress -> resolved | closed
+        - resolved -> closed | in_progress
+        - closed -> (no further transitions)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTicketStatusRequest"
+            example:
+              status: in_progress
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    TicketStatus:
+      type: string
+      enum:
+        - open
+        - in_progress
+        - resolved
+        - closed
+
+    Ticket:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - requester
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        requester:
+          type: string
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTicketRequest:
+      type: object
+      required:
+        - title
+        - description
+        - requester
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        requester:
+          type: string
+          minLength: 1
+
+    UpdateTicketStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: "#/components/schemas/TicketStatus"
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
