@@ -98,10 +98,10 @@ function updateTicketFields(id, updates) {
   return ticket;
 }
 
-function addToProcessingLog(ticketId, logEntry) {
+async function addToProcessingLog(ticketId, logEntry) {
   const ticket = getTicketById(ticketId);
   if (!ticket) {
-    return Promise.resolve(null);
+    return null; // Native async functions wrap this automatically in a promise
   }
 
   if (!Array.isArray(ticket.ai_processing_log)) {
@@ -114,7 +114,7 @@ function addToProcessingLog(ticketId, logEntry) {
   });
 
   ticket.updated_at = new Date().toISOString();
-  return Promise.resolve(ticket);
+  return ticket; 
 }
 
 function resetStore() {

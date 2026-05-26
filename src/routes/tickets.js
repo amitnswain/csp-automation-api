@@ -35,7 +35,7 @@ const processTicketThroughPipeline = async (ticketId) => {
         description: redactedDescription,
         pii_redacted: true
       });
-      addToProcessingLog(ticketId, {
+      await addToProcessingLog(ticketId, {
         event: "pii_redaction",
         description: "PII detected and redacted from ticket description"
       });
@@ -55,7 +55,7 @@ const processTicketThroughPipeline = async (ticketId) => {
       triage_result: JSON.stringify(triageResult)
     });
 
-    addToProcessingLog(ticketId, {
+    await addToProcessingLog(ticketId, {
       event: "triage_completed",
       triage_result: triageResult
     });
@@ -72,7 +72,7 @@ const processTicketThroughPipeline = async (ticketId) => {
       confidence_score: researchResult.confidence
     });
 
-    addToProcessingLog(ticketId, {
+    await addToProcessingLog(ticketId, {
       event: "research_completed",
       confidence: researchResult.confidence,
       sources_found: researchResult.sources_found,
@@ -108,7 +108,7 @@ const processTicketThroughPipeline = async (ticketId) => {
         escalation_reason: escalationResult.escalation_reason
       });
 
-      addToProcessingLog(ticketId, {
+      await addToProcessingLog(ticketId, {
         event: "ticket_escalated",
         reason: escalationResult.escalation_reason
       });
@@ -134,7 +134,7 @@ const processTicketThroughPipeline = async (ticketId) => {
       status: researchResult.confidence >= 0.7 ? "closed" : "in_progress"
     });
 
-    addToProcessingLog(ticketId, {
+    await addToProcessingLog(ticketId, {
       event: "response_finalized",
       confidence: researchResult.confidence,
       is_auto_resolved: researchResult.confidence >= 0.7,
@@ -153,7 +153,7 @@ const processTicketThroughPipeline = async (ticketId) => {
     // Log error to ticket processing log
     const ticket = getTicketById(ticketId);
     if (ticket) {
-      addToProcessingLog(ticketId, {
+      await addToProcessingLog(ticketId, {
         event: "pipeline_error",
         error: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -249,7 +249,7 @@ router.delete("/:id", async (req, res, next) => {
     });
 
     // Log the ticket closed event (synchronous)
-    addToProcessingLog(req.params.id, {
+    await addToProcessingLog(req.params.id, {
       event: "ticket_closed",
       description: "Ticket was closed/deleted"
     });
