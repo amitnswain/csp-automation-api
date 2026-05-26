@@ -9,29 +9,29 @@ describe("IT Support Ticket API", () => {
 
   it("creates a ticket successfully", async () => {
     const response = await request(app).post("/tickets").send({
-      title: "Laptop not booting",
+      subject: "Laptop not booting",
       description: "The laptop is stuck on BIOS screen",
-      requester: "alice",
+      submitter_ref: "alice",
     });
 
     expect(response.statusCode).toBe(201);
     expect(response.body).toEqual(
       expect.objectContaining({
-        title: "Laptop not booting",
+        subject: "Laptop not booting",
         description: "The laptop is stuck on BIOS screen",
-        requester: "alice",
+        submitter_ref: "alice",
         status: "open",
       }),
     );
-    expect(response.body.id).toEqual(expect.any(String));
-    expect(response.body.createdAt).toEqual(expect.any(String));
-    expect(response.body.updatedAt).toEqual(expect.any(String));
+    expect(response.body.ticket_id).toEqual(expect.any(String));
+    expect(response.body.created_at).toEqual(expect.any(String));
+    expect(response.body.updated_at).toEqual(expect.any(String));
   });
 
   it("fails when required fields are missing", async () => {
     const response = await request(app).post("/tickets").send({
-      title: "Printer issue",
-      requester: "bob",
+      subject: "Printer issue",
+      submitter_ref: "bob",
     });
 
     expect(response.statusCode).toBe(400);
@@ -49,9 +49,9 @@ describe("IT Support Ticket API", () => {
     expect(emptyResponse.body).toEqual([]);
 
     await request(app).post("/tickets").send({
-      title: "VPN problem",
+      subject: "VPN problem",
       description: "Unable to connect to VPN",
-      requester: "charlie",
+      submitter_ref: "charlie",
     });
 
     const populatedResponse = await request(app).get("/tickets");
@@ -61,15 +61,15 @@ describe("IT Support Ticket API", () => {
 
   it("retrieves a ticket by id and returns 404 for unknown id", async () => {
     const createResponse = await request(app).post("/tickets").send({
-      title: "Email access issue",
+      subject: "Email access issue",
       description: "Cannot access inbox",
-      requester: "diana",
+      submitter_ref: "diana",
     });
-    const { id } = createResponse.body;
+    const { ticket_id } = createResponse.body;
 
-    const getByIdResponse = await request(app).get(`/tickets/${id}`);
+    const getByIdResponse = await request(app).get(`/tickets/${ticket_id}`);
     expect(getByIdResponse.statusCode).toBe(200);
-    expect(getByIdResponse.body.id).toBe(id);
+    expect(getByIdResponse.body.ticket_id).toBe(ticket_id);
 
     const notFoundResponse = await request(app).get("/tickets/non-existent-id");
     expect(notFoundResponse.statusCode).toBe(404);
@@ -78,12 +78,12 @@ describe("IT Support Ticket API", () => {
 
   it("filters tickets by status", async () => {
     const created = await request(app).post("/tickets").send({
-      title: "Monitor flickering",
+      subject: "Monitor flickering",
       description: "Screen flickers every minute",
-      requester: "eve",
+      submitter_ref: "eve",
     });
 
-    await request(app).patch(`/tickets/${created.body.id}/status`).send({
+    await request(app).patch(`/tickets/${created.body.ticket_id}/status`).send({
       status: "in_progress",
     });
 
@@ -97,39 +97,39 @@ describe("IT Support Ticket API", () => {
     expect(inProgressResponse.body[0].status).toBe("in_progress");
   });
 
-  it("searches tickets by title and description", async () => {
+  it("searches tickets by subject and description", async () => {
     await request(app).post("/tickets").send({
-      title: "Software install request",
+      subject: "Software install request",
       description: "Need Photoshop access",
-      requester: "frank",
+      submitter_ref: "frank",
     });
     await request(app).post("/tickets").send({
-      title: "Keyboard replacement",
+      subject: "Keyboard replacement",
       description: "Keycaps are broken",
-      requester: "grace",
+      submitter_ref: "grace",
     });
 
     const response = await request(app).get("/tickets").query({ search: "photoshop" });
 
     expect(response.statusCode).toBe(200);
     expect(response.body.length).toBe(1);
-    expect(response.body[0].title).toBe("Software install request");
+    expect(response.body[0].subject).toBe("Software install request");
   });
 
   it("updates ticket status and rejects invalid status", async () => {
     const created = await request(app).post("/tickets").send({
-      title: "Network outage",
+      subject: "Network outage",
       description: "No internet in office area",
-      requester: "henry",
+      submitter_ref: "henry",
     });
 
-    const updated = await request(app).patch(`/tickets/${created.body.id}/status`).send({
-      status: "resolved",
+    const updated = await request(app).patch(`/tickets/${created.body.ticket_id}/status`).send({
+      status: "closed",
     });
     expect(updated.statusCode).toBe(200);
-    expect(updated.body.status).toBe("resolved");
+    expect(updated.body.status).toBe("closed");
 
-    const invalidStatus = await request(app).patch(`/tickets/${created.body.id}/status`).send({
+    const invalidStatus = await request(app).patch(`/tickets/${created.body.ticket_id}/status`).send({
       status: "invalid",
     });
     expect(invalidStatus.statusCode).toBe(400);

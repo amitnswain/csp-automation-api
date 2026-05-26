@@ -26,13 +26,23 @@ const SAMPLE_TICKETS = [
 function createTicket(payload) {
   const timestamp = new Date().toISOString();
   const ticket = {
-    id: randomUUID(),
-    title: payload.title,
+    ticket_id: randomUUID(),
+    subject: payload.subject,
     description: payload.description,
-    requester: payload.requester,
+    submitter_ref: payload.submitter_ref,
     status: "open",
-    createdAt: timestamp,
-    updatedAt: timestamp,
+    urgency: null, // low, medium, high, critical (set by triage)
+    category: null, // Topic label assigned by the triage skill
+    triage_result: null, // machine-readable classification
+    pii_redacted: false, // whether PII has been redacted
+    confidence_score: null, // confidence score for draft responses (0-1)
+    escalation_reason: null, // reason for escalation to human
+    ai_processing_log: [], // structured log entries
+    draft_response: null, // AI-generated draft response from the Researcher
+    final_response: null, // final response (human-approved or AI-final)
+    created_at: timestamp,
+    updated_at: timestamp,
+    resolved_at: null, // Set when ticket is closed
   };
 
   tickets.push(ticket);
@@ -48,7 +58,7 @@ function listTickets(filters = {}) {
     }
 
     if (normalizedSearch) {
-      const haystack = `${ticket.title} ${ticket.description}`.toLowerCase();
+      const haystack = `${ticket.subject} ${ticket.description}`.toLowerCase();
       return haystack.includes(normalizedSearch);
     }
 
@@ -57,7 +67,7 @@ function listTickets(filters = {}) {
 }
 
 function getTicketById(id) {
-  return tickets.find((ticket) => ticket.id === id) || null;
+  return tickets.find((ticket) => ticket.ticket_id === id) || null;
 }
 
 function updateTicketStatus(id, newStatus) {
@@ -67,8 +77,44 @@ function updateTicketStatus(id, newStatus) {
   }
 
   ticket.status = newStatus;
-  ticket.updatedAt = new Date().toISOString();
+  ticket.updated_at = new Date().toISOString();
+  if (newStatus === "closed") {
+    ticket.resolved_at = new Date().toISOString();
+  }
   return ticket;
+}
+
+function updateTicketFields(id, updates) {
+  const ticket = getTicketById(id);
+  if (!ticket) {
+    return null;
+  }
+
+  Object.assign(ticket, updates, { updated_at: new Date().toISOString() });
+  // If status is being updated to closed, set resolved_at
+  if (updates.status && updates.status === "closed") {
+    ticket.resolved_at = new Date().toISOString();
+  }
+  return ticket;
+}
+
+function addToProcessingLog(ticketId, logEntry) {
+  const ticket = getTicketById(ticketId);
+  if (!ticket) {
+    return Promise.resolve(null);
+  }
+
+  if (!Array.isArray(ticket.ai_processing_log)) {
+    ticket.ai_processing_log = [];
+  }
+
+  ticket.ai_processing_log.push({
+    timestamp: new Date().toISOString(),
+    ...logEntry
+  });
+
+  ticket.updated_at = new Date().toISOString();
+  return Promise.resolve(ticket);
 }
 
 function resetStore() {
@@ -82,13 +128,23 @@ function seedSampleTickets() {
 
   const seededAt = new Date().toISOString();
   const seedTickets = SAMPLE_TICKETS.map((sample) => ({
-    id: randomUUID(),
-    title: sample.title,
+    ticket_id: randomUUID(),
+    subject: sample.title,
     description: sample.description,
-    requester: sample.requester,
+    submitter_ref: sample.requester,
     status: sample.status,
-    createdAt: seededAt,
-    updatedAt: seededAt,
+    urgency: null,
+    category: null,
+    triage_result: null,
+    pii_redacted: false,
+    confidence_score: null,
+    escalation_reason: null,
+    ai_processing_log: [],
+    draft_response: null,
+    final_response: null,
+    created_at: seededAt,
+    updated_at: seededAt,
+    resolved_at: sample.status === "resolved" ? new Date().toISOString() : null,
   }));
 
   tickets.push(...seedTickets);
@@ -100,6 +156,8 @@ module.exports = {
   listTickets,
   getTicketById,
   updateTicketStatus,
+  updateTicketFields,
+  addToProcessingLog,
   resetStore,
   seedSampleTickets,
 };

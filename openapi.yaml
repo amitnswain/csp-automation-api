@@ -1,19 +1,28 @@
 openapi: 3.0.3
 info:
-  title: IT Support Ticket API
+  title: Customer Support Assistant API
   version: 1.0.0
-  description: REST API for managing IT support tickets with in-memory storage.
+  description: REST API for intelligent customer support automation with AI-powered triage, research, escalation, PII protection, and audit logging.
 servers:
-  - url: https://it-support-system-yf51.onrender.com
+  - url: http://localhost:3000
 tags:
   - name: Tickets
-    description: Ticket operations
+    description: Ticket operations and automation pipeline
+  - name: Automation
+    description: AI-powered automation tools (triage, research, escalation)
+  - name: Plugin
+    description: Plugin and intent mapping tools
+  - name: Logging
+    description: Audit trail and processing logs
+  - name: System
+    description: System status and health monitoring
 paths:
   /tickets:
     post:
       tags:
         - Tickets
       summary: Create a new ticket
+      description: Creates a ticket and initiates the automation pipeline (triage, research, etc.)
       requestBody:
         required: true
         content:
@@ -26,7 +35,7 @@ paths:
               requester: alice.ng
       responses:
         "201":
-          description: Ticket created
+          description: Ticket created and processing initiated
           content:
             application/json:
               schema:
@@ -41,7 +50,7 @@ paths:
       tags:
         - Tickets
       summary: List tickets
-      description: Returns all tickets, optionally filtered by status and/or search keyword.
+      description: Returns all tickets, optionally filtered by status, urgency, topic, and/or search keyword.
       parameters:
         - in: query
           name: status
@@ -49,6 +58,18 @@ paths:
           schema:
             $ref: "#/components/schemas/TicketStatus"
           description: Filter by ticket status.
+        - in: query
+          name: urgency_level
+          required: false
+          schema:
+            $ref: "#/components/schemas/UrgencyLevel"
+          description: Filter by urgency level.
+        - in: query
+          name: topic_category
+          required: false
+          schema:
+            $ref: "#/components/schemas/TopicCategory"
+          description: Filter by topic category.
         - in: query
           name: search
           required: false
@@ -70,7 +91,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
   /tickets/{id}:
     get:
       tags:
@@ -96,19 +116,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /tickets/{id}/status:
     patch:
       tags:
         - Tickets
-      summary: Update ticket status
-      description: |
-        Updates only the status field. Allowed values are open, in_progress, resolved, closed.
-        Transition rules:
-        - open -> in_progress | resolved | closed
-        - in_progress -> resolved | closed
-        - resolved -> closed | in_progress
-        - closed -> (no further transitions)
+      summary: Update ticket fields
+      description: Updates specific ticket fields (status, urgency, topic, confidence, etc.)
       parameters:
         - in: path
           name: id
@@ -121,12 +133,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateTicketStatusRequest"
-            example:
-              status: in_progress
+              oneOf:
+                - $ref: "#/components/schemas/UpdateTicketStatusRequest"
+                - $ref: "#/components/schemas/UpdateTicketUrgencyRequest"
+                - $ref: "#/components/schemas/UpdateTicketTopicRequest"
+                - $ref: "#/components/schemas/UpdateResearcherConfidenceRequest"
       responses:
         "200":
-          description: Updated ticket
+          description: Ticket updated
           content:
             application/json:
               schema:
@@ -143,7 +157,214 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
+  /tickets/{id}/triage:
+    post:
+      tags:
+        - Automation
+      summary: Manually trigger ticket triage
+      description: Classify ticket by urgency level and topic category
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+      responses:
+        "200":
+          description: Triage completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriageResult"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tickets/{id}/research:
+    post:
+      tags:
+        - Automation
+      summary: Manually trigger research subagent
+      description: Generate draft response by researching knowledge base
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+      responses:
+        "200":
+          description: Research completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchResult"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tickets/{id}/escalate:
+    post:
+      tags:
+        - Automation
+      summary: Manually escalate ticket
+      description: Escalate ticket to human support with optional reason
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+        - in: query
+          name: reason
+          required: false
+          schema:
+            type: string
+          description: Optional reason for escalation
+      responses:
+        "200":
+          description: Escalation processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscalationResult"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tickets/{id}/intents:
+    get:
+      tags:
+        - Plugin
+      summary: Get intent mappings and recommendations
+      description: Get intent mappings and recommended actions for a ticket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+      responses:
+        "200":
+          description: Intent mappings retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntentMappingResult"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tickets/{id}/pii:
+    post:
+      tags:
+        - Automation
+      summary: Detect PII in ticket description
+      description: Scan ticket description for personally identifiable information
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+      responses:
+        "200":
+          description: PII detection completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PiiDetectionResult"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /tickets/{id}/logs:
+    get:
+      tags:
+        - Logging
+      summary: Get processing logs for ticket
+      description: Retrieve audit trail of all processing events for a ticket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Ticket ID (UUID string)
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 50
+          description: Maximum number of log entries to return
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Number of log entries to skip
+        - in: query
+          name: event
+          required: false
+          schema:
+            type: string
+          description: Filter by event type
+      responses:
+        "200":
+          description: Ticket logs retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketLogsResponse"
+        "404":
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /logs/clear:
+    post:
+      tags:
+        - Logging
+      summary: Clear all processing logs
+      description: Clear all processing logs (mainly for testing purposes)
+      responses:
+        "200":
+          description: Logs cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogClearResponse"
+  /system/status:
+    get:
+      tags:
+        - System
+      summary: Get system status
+      description: Get current system status and statistics
+      responses:
+        "200":
+          description: System status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatusResponse"
 components:
   schemas:
     TicketStatus:
@@ -153,7 +374,26 @@ components:
         - in_progress
         - resolved
         - closed
-
+        - escalated
+    UrgencyLevel:
+      type: string
+      enum:
+        - low
+        - medium
+        - high
+        - critical
+    TopicCategory:
+      type: string
+      enum:
+        - billing
+        - technical
+        - feature_request
+        - security
+        - access_request
+        - hardware
+        - software
+        - network
+        - other
     Ticket:
       type: object
       required:
@@ -170,10 +410,13 @@ components:
           format: uuid
         title:
           type: string
+          minLength: 1
         description:
           type: string
+          minLength: 1
         requester:
           type: string
+          minLength: 1
         status:
           $ref: "#/components/schemas/TicketStatus"
         createdAt:
@@ -182,7 +425,62 @@ components:
         updatedAt:
           type: string
           format: date-time
-
+        # Enhanced fields for automation pipeline
+        urgency_level:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+          nullable: true
+        topic_category:
+          type: string
+          enum:
+            - billing
+            - technical
+            - feature_request
+            - security
+            - access_request
+            - hardware
+            - software
+            - network
+            - other
+          nullable: true
+        triage_result:
+          type: string
+          nullable: true
+          description: JSON string of triage classification result
+        pii_redacted:
+          type: boolean
+          default: false
+        researcher_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        escalation_reason:
+          type: string
+          nullable: true
+        ai_processing_log:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              event:
+                type: string
+              data:
+                type: object
+          nullable: true
+        draft_response:
+          type: string
+          nullable: true
+        final_response:
+          type: string
+          nullable: true
     CreateTicketRequest:
       type: object
       required:
@@ -199,7 +497,6 @@ components:
         requester:
           type: string
           minLength: 1
-
     UpdateTicketStatusRequest:
       type: object
       required:
@@ -207,7 +504,230 @@ components:
       properties:
         status:
           $ref: "#/components/schemas/TicketStatus"
-
+    UpdateTicketUrgencyRequest:
+      type: object
+      required:
+        - urgency_level
+      properties:
+        urgency_level:
+          $ref: "#/components/schemas/UrgencyLevel"
+    UpdateTicketTopicRequest:
+      type: object
+      required:
+        - topic_category
+      properties:
+        topic_category:
+          $ref: "#/components/schemas/TopicCategory"
+    UpdateResearcherConfidenceRequest:
+      type: object
+      required:
+        - researcher_confidence
+      properties:
+        researcher_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+    TriageResult:
+      type: object
+      properties:
+        urgency_level:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+        topic_category:
+          type: string
+          enum:
+            - billing
+            - technical
+            - feature_request
+            - security
+            - access_request
+            - hardware
+            - software
+            - network
+            - other
+        classified_at:
+          type: string
+          format: date-time
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+    ResearchResult:
+      type: object
+      properties:
+        draft_response:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        sources_found:
+          type: integer
+          minimum: 0
+        research_timestamp:
+          type: string
+          format: date-time
+    EscalationResult:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        escalation_reason:
+          type: string
+        escalated_at:
+          type: string
+          format: date-time
+        context:
+          type: object
+          description: Full context at time of escalation
+        human_agent_notes:
+          type: string
+        status:
+          type: string
+          enum:
+            - escalated
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+            - critical
+    IntentMappingResult:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        recommended_action:
+          type: object
+          properties:
+            primary_intent:
+              type: string
+            human_review_required:
+              type: boolean
+            urgency_intent:
+              type: object
+            topic_intent:
+              type: object
+            confidence_intent:
+              type: object
+            estimated_effort:
+              type: string
+              enum:
+                - low
+                - medium
+                - high
+            suggested_next_steps:
+              type: array
+              items:
+                type: string
+        intent_mappings:
+          type: object
+          description: Complete intent mappings reference
+    PiiDetectionResult:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        pii_detected:
+          type: boolean
+        matches:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                  - person_name
+                  - email
+                  - phone
+                  - address
+                  - account_number
+                  - payment
+                  - ip_address
+                  - date_of_birth
+              original_value:
+                type: string
+              redacted_value:
+                type: string
+              position:
+                type: integer
+        redacted_description:
+          type: string
+    TicketLogsResponse:
+      type: object
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        logs:
+          type: array
+          items:
+            type: object
+            properties:
+              ticket_id:
+                type: string
+                format: uuid
+              event:
+                type: string
+              data:
+                type: object
+              timestamp:
+                type: string
+                format: date-time
+        total_count:
+          type: integer
+        filtered_count:
+          type: integer
+    LogClearResponse:
+      type: object
+      properties:
+        cleared_count:
+          type: integer
+    SystemStatusResponse:
+      type: object
+      properties:
+        ticket_counts:
+          type: object
+          properties:
+            total:
+              type: integer
+            by_status:
+              type: object
+              additionalProperties:
+                type: integer
+            by_urgency:
+              type: object
+              additionalProperties:
+                type: integer
+            by_topic:
+              type: object
+              additionalProperties:
+                type: integer
+        processing_stats:
+          type: object
+          properties:
+            total_log_entries:
+              type: integer
+            average_researcher_confidence:
+              type: number
+        system_info:
+          type: object
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+            uptime:
+              type: number
     ErrorResponse:
       type: object
       required:

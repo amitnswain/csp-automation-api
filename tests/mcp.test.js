@@ -59,7 +59,7 @@ describe("MCP Server Integration", () => {
     try {
       expect(client.getServerVersion()).toEqual(
         expect.objectContaining({
-          name: "it-support-ticket-mcp",
+          name: "customer-support-assistant-mcp",
         }),
       );
 
@@ -72,6 +72,9 @@ describe("MCP Server Integration", () => {
           "list_tickets",
           "get_ticket",
           "update_ticket_status",
+          "update_ticket_urgency",
+          "update_ticket_category",
+          "update_ticket_confidence_score",
         ]),
       );
     } finally {
@@ -86,19 +89,19 @@ describe("MCP Server Integration", () => {
       const created = await client.callTool({
         name: "create_ticket",
         arguments: {
-          title: "Wifi not working",
+          subject: "Wifi not working",
           description: "Office wifi disconnected",
-          requester: "jane.doe",
+          submitter_ref: "jane.doe",
         },
       });
 
       expect(created.isError).not.toBe(true);
-      const ticketId = created.structuredContent.data.ticket.id;
+      const ticketId = created.structuredContent.data.ticket.ticket_id;
 
       const updated = await client.callTool({
         name: "update_ticket_status",
         arguments: {
-          id: ticketId,
+          ticket_id: ticketId,
           status: "in_progress",
         },
       });
@@ -107,10 +110,10 @@ describe("MCP Server Integration", () => {
 
       const fetched = await client.callTool({
         name: "get_ticket",
-        arguments: { id: ticketId },
+        arguments: { ticket_id: ticketId },
       });
       expect(fetched.isError).not.toBe(true);
-      expect(fetched.structuredContent.data.ticket.id).toBe(ticketId);
+      expect(fetched.structuredContent.data.ticket.ticket_id).toBe(ticketId);
 
       const listed = await client.callTool({
         name: "list_tickets",
@@ -130,9 +133,9 @@ describe("MCP Server Integration", () => {
       const result = await client.callTool({
         name: "create_ticket",
         arguments: {
-          title: "",
+          subject: "",
           description: "Password reset required",
-          requester: "john",
+          submitter_ref: "john",
         },
       });
 
@@ -150,7 +153,7 @@ describe("MCP Server Integration", () => {
     try {
       const result = await client.callTool({
         name: "get_ticket",
-        arguments: { id: "missing-id" },
+        arguments: { ticket_id: "missing-id" },
       });
 
       expect(result.isError).toBe(true);
@@ -168,22 +171,22 @@ describe("MCP Server Integration", () => {
       const created = await client.callTool({
         name: "create_ticket",
         arguments: {
-          title: "Printer offline",
+          subject: "Printer offline",
           description: "Unable to print",
-          requester: "ops.user",
+          submitter_ref: "ops.user",
         },
       });
 
-      const ticketId = created.structuredContent.data.ticket.id;
+      const ticketId = created.structuredContent.data.ticket.ticket_id;
 
       await client.callTool({
         name: "update_ticket_status",
-        arguments: { id: ticketId, status: "closed" },
+        arguments: { ticket_id: ticketId, status: "closed" },
       });
 
       const invalidTransition = await client.callTool({
         name: "update_ticket_status",
-        arguments: { id: ticketId, status: "in_progress" },
+        arguments: { ticket_id: ticketId, status: "in_progress" },
       });
 
       expect(invalidTransition.isError).toBe(true);
@@ -199,21 +202,21 @@ describe("MCP Server Integration", () => {
 
     try {
       const restCreate = await request(app).post("/tickets").send({
-        title: "VPN token expired",
+        subject: "VPN token expired",
         description: "Cannot connect after token expiry",
-        requester: "rest.user",
+        submitter_ref: "rest.user",
       });
 
       const restTicket = restCreate.body;
 
       const mcpGet = await client.callTool({
         name: "get_ticket",
-        arguments: { id: restTicket.id },
+        arguments: { ticket_id: restTicket.ticket_id },
       });
 
       expect(mcpGet.isError).not.toBe(true);
-      expect(mcpGet.structuredContent.data.ticket.id).toBe(restTicket.id);
-      expect(mcpGet.structuredContent.data.ticket.title).toBe(restTicket.title);
+      expect(mcpGet.structuredContent.data.ticket.ticket_id).toBe(restTicket.ticket_id);
+      expect(mcpGet.structuredContent.data.ticket.subject).toBe(restTicket.subject);
     } finally {
       await disconnectClient(transport);
     }
