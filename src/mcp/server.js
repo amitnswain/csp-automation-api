@@ -147,10 +147,17 @@ function toToolError(code, message, details) {
 }
 
 function createMcpServer() {
-  const server = new Server({
-    name: "customer-support-assistant-mcp",
-    version: "1.0.0",
-  });
+  const server = new Server(
+    {
+      name: "customer-support-assistant-mcp",
+      version: "1.0.0",
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
 
   // Set request handler for tools/list
   server.setRequestHandler(ListToolsRequestSchema, async (request) => {

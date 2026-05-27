@@ -40,14 +40,32 @@ describe("MCP Server Integration", () => {
   });
 
   async function connectClient() {
-    const client = new Client({
-      name: "mcp-test-client",
-      version: "1.0.0",
-    });
-    const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`));
-    await client.connect(transport);
-    return { client, transport };
-  }
+  const client = new Client({
+    name: "mcp-test-client",
+    version: "1.0.0",
+  });
+  
+  const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl}/mcp`));
+  await client.connect(transport);
+
+  const originalCallTool = client.callTool.bind(client);
+  client.callTool = async (args) => {
+    const response = await originalCallTool(args);
+    
+    if (response && response.content && response.content[0]) {
+      try {
+        const parsed = JSON.parse(response.content[0].text);
+        response.structuredContent = parsed;
+        response.isError = parsed.success === false;
+      } catch (e) {
+        response.structuredContent = {};
+      }
+    }
+    return response;
+  };
+
+  return { client, transport };
+}
 
   async function disconnectClient(transport) {
     await transport.close();

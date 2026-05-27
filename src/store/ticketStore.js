@@ -31,18 +31,18 @@ function createTicket(payload) {
     description: payload.description,
     submitter_ref: payload.submitter_ref,
     status: "open",
-    urgency: null, // low, medium, high, critical (set by triage)
-    category: null, // Topic label assigned by the triage skill
-    triage_result: null, // machine-readable classification
-    pii_redacted: false, // whether PII has been redacted
-    confidence_score: null, // confidence score for draft responses (0-1)
-    escalation_reason: null, // reason for escalation to human
-    ai_processing_log: [], // structured log entries
-    draft_response: null, // AI-generated draft response from the Researcher
-    final_response: null, // final response (human-approved or AI-final)
+    urgency: null,
+    category: null,
+    triage_result: null,
+    pii_redacted: false,
+    confidence_score: null,
+    escalation_reason: null,
+    ai_processing_log: [],
+    draft_response: null,
+    final_response: null,
     created_at: timestamp,
     updated_at: timestamp,
-    resolved_at: null, // Set when ticket is closed
+    resolved_at: null,
   };
 
   tickets.push(ticket);
@@ -99,7 +99,6 @@ function updateTicketFields(id, updates) {
   }
 
   Object.assign(ticket, updates, { updated_at: new Date().toISOString() });
-  // If status is being updated to closed, set resolved_at
   if (updates.status && updates.status === "closed") {
     ticket.resolved_at = new Date().toISOString();
   }
@@ -109,7 +108,7 @@ function updateTicketFields(id, updates) {
 async function addToProcessingLog(ticketId, logEntry) {
   const ticket = getTicketById(ticketId);
   if (!ticket) {
-    return null; // Native async functions wrap this automatically in a promise
+    return null;
   }
 
   if (!Array.isArray(ticket.ai_processing_log)) {
