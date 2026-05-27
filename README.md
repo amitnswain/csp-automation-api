@@ -105,6 +105,21 @@ npm start
 # - REST API: http://localhost:3000
 # - MCP Server: http://localhost:3000/mcp
 ```
+# Terminal 2: Create a Ticket
+curl -X POST http://localhost:3000/tickets -H "Content-Type: application/json" -d "{\"subject\":\"Test\",\"description\":\"Testing\",\"submitter_ref\":\"user\"}"
+
+# Terminal 2: Check Results (after 2 seconds)
+curl -X GET http://localhost:3000/tickets
+
+# Terminal 3: Check Results (after 2 seconds)
+curl -X GET http://localhost:3000/tickets/68a2c2cd-c5fc-4eef-bb07-cd3269920612
+
+# Terminal 4: Check Results (after 2 seconds)
+curl -X PATCH http://localhost:3000/tickets/28d18aa2-c403-47dc-82d6-3b82f2f680ec -H "Content-Type: application/json" -d "{\"subject\":\"Updated subject of VPN disconnection\"}"
+
+# Terminal 5: Check Results (after 2 seconds)
+curl -X DELETE http://localhost:3000/tickets/68a2c2cd-c5fc-4eef-bb07-cd3269920612
+
 
 ### Running Tests
 ```bash
