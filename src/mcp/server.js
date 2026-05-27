@@ -17,6 +17,109 @@ const {
   validateResearcherConfidence,
 } = require("../validation");
 
+// Define Zod schemas for MCP requests
+const CallToolRequestSchema = z.object({
+  method: z.literal('tools/call'),
+  params: z.object({
+    name: z.string(),
+    arguments: z.record(z.unknown())
+  })
+});
+
+const ListToolsRequestSchema = z.object({
+  method: z.literal('tools/list'),
+  params: z.object({}).optional()
+});
+
+// Tool definitions
+const TOOLS = [
+  {
+    name: "create_ticket",
+    description: "Create a new support ticket.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        subject: { type: "string", description: "Ticket subject" },
+        description: { type: "string", description: "Ticket description" },
+        submitter_ref: { type: "string", description: "Submitter reference" },
+      },
+      required: ["subject", "description", "submitter_ref"],
+    },
+  },
+  {
+    name: "list_tickets",
+    description: "List support tickets with optional filters.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Filter by status" },
+        urgency: { type: "string", description: "Filter by urgency" },
+        category: { type: "string", description: "Filter by category" },
+        search: { type: "string", description: "Search query" },
+      },
+    },
+  },
+  {
+    name: "get_ticket",
+    description: "Get a specific support ticket by ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string", description: "Ticket ID" },
+      },
+      required: ["ticket_id"],
+    },
+  },
+  {
+    name: "update_ticket_status",
+    description: "Update a ticket's status with state transition validation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string", description: "Ticket ID" },
+        status: { type: "string", description: "New status" },
+      },
+      required: ["ticket_id", "status"],
+    },
+  },
+  {
+    name: "update_ticket_urgency",
+    description: "Update a ticket's urgency level.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string", description: "Ticket ID" },
+        urgency: { type: "string", description: "Urgency level" },
+      },
+      required: ["ticket_id", "urgency"],
+    },
+  },
+  {
+    name: "update_ticket_category",
+    description: "Update a ticket's category or topic.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string", description: "Ticket ID" },
+        category: { type: "string", description: "Category" },
+      },
+      required: ["ticket_id", "category"],
+    },
+  },
+  {
+    name: "update_ticket_confidence_score",
+    description: "Update researcher confidence score.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticket_id: { type: "string", description: "Ticket ID" },
+        confidence_score: { type: "number", description: "Confidence score 0-1", minimum: 0, maximum: 1 },
+      },
+      required: ["ticket_id", "confidence_score"],
+    },
+  },
+];
+
 // Helper function to wrap tool handlers with error handling
 function withToolHandler(handler) {
   return handler;
@@ -49,183 +152,98 @@ function createMcpServer() {
     version: "1.0.0",
   });
 
-  server.registerTool(
-    "create_ticket",
-    {
-      description: "Create a new support ticket.",
-      inputSchema: z.object({
-        subject: z.string(),
-        description: z.string(),
-        submitter_ref: z.string(),
-      }),
-    },
-    async ({ subject, description, submitter_ref }) => {
-      try {
-        validateCreateTicketBody({ subject, description, submitter_ref });
-        const ticket = createTicket({ subject, description, submitter_ref });
-        return toToolSuccess({ ticket }, "Ticket created successfully");
-      } catch (error) {
-        if (error instanceof ApiError) {
-          return toToolError("validation_error", error.message, error.details);
-        }
-        throw error;
-      }
-    },
-  );
+  // Set request handler for tools/list
+  server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+    return {
+      tools: TOOLS,
+    };
+  });
 
-  server.registerTool(
-    "list_tickets",
-    {
-      description: "List support tickets with optional filters.",
-      inputSchema: z.object({
-        status: z.string().optional(),
-        urgency: z.string().optional(),
-        category: z.string().optional(),
-        search: z.string().optional(),
-      }),
-    },
-    async ({ status, urgency, category, search }) => {
-      try {
-        validateListFilters({ status, urgency, category, search });
-        const tickets = listTickets({ status, urgency, category, search });
-        return toToolSuccess({ tickets }, "Tickets retrieved successfully");
-      } catch (error) {
-        if (error instanceof ApiError) {
-          return toToolError("validation_error", error.message, error.details);
-        }
-        throw error;
-      }
-    },
-  );
+  // Set request handler for tool calls
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
 
-  server.registerTool(
-    "get_ticket",
-    {
-      description: "Get a specific support ticket by ID.",
-      inputSchema: z.object({
-        ticket_id: z.string(),
-      }),
-    },
-    async ({ ticket_id }) => {
-      const ticket = getTicketById(ticket_id);
-      if (!ticket) {
-        return toToolError("not_found", "Ticket not found");
-      }
-      return toToolSuccess({ ticket }, "Ticket retrieved successfully");
-    },
-  );
+    try {
+      let result;
 
-  server.registerTool(
-    "update_ticket_status",
-    {
-      description: "Update a ticket's status with state transition validation.",
-      inputSchema: z.object({
-        ticket_id: z.string(),
-        status: z.string(),
-      }),
-    },
-    async ({ ticket_id, status }) => {
-      try {
-        const ticket = getTicketById(ticket_id);
+      if (name === "create_ticket") {
+        validateCreateTicketBody(args);
+        const ticket = createTicket(args);
+        result = toToolSuccess({ ticket }, "Ticket created successfully");
+      } else if (name === "list_tickets") {
+        validateListFilters(args);
+        const tickets = listTickets(args);
+        result = toToolSuccess({ tickets }, "Tickets retrieved successfully");
+      } else if (name === "get_ticket") {
+        const ticket = getTicketById(args.ticket_id);
         if (!ticket) {
-          return toToolError("not_found", "Ticket not found");
+          result = toToolError("not_found", "Ticket not found");
+        } else {
+          result = toToolSuccess({ ticket }, "Ticket retrieved successfully");
         }
-
-        validateStatusUpdateBody({ status }, ticket.status);
-        const updatedTicket = updateTicketStatus(ticket_id, status);
-        return toToolSuccess({ ticket: updatedTicket }, "Ticket status updated successfully");
-      } catch (error) {
-        if (error instanceof ApiError) {
-          return toToolError("validation_error", error.message, error.details);
-        }
-        throw error;
-      }
-    },
-  );
-
-  server.registerTool(
-    "update_ticket_urgency",
-    {
-      description: "Update a ticket's urgency level.",
-      inputSchema: z.object({
-        ticket_id: z.string(),
-        urgency: z.string().optional(),
-      }),
-    },
-    async ({ ticket_id, urgency }) => {
-      try {
-        const ticket = getTicketById(ticket_id);
+      } else if (name === "update_ticket_status") {
+        const ticket = getTicketById(args.ticket_id);
         if (!ticket) {
-          return toToolError("not_found", "Ticket not found");
+          result = toToolError("not_found", "Ticket not found");
+        } else {
+          validateStatusUpdateBody({ status: args.status }, ticket.status);
+          const updatedTicket = updateTicketStatus(args.ticket_id, args.status);
+          result = toToolSuccess({ ticket: updatedTicket }, "Ticket status updated successfully");
         }
-
-        validateUrgencyLevel({ urgency });
-        const updatedTicket = updateTicketFields(ticket_id, { urgency });
-        return toToolSuccess({ ticket: updatedTicket }, "Ticket urgency updated successfully");
-      } catch (error) {
-        if (error instanceof ApiError) {
-          return toToolError("validation_error", error.message, error.details);
-        }
-        throw error;
-      }
-    },
-  );
-
-  server.registerTool(
-    "update_ticket_category",
-    {
-      description: "Update a ticket's category or topic.",
-      inputSchema: z.object({
-        ticket_id: z.string(),
-        category: z.string().optional(),
-      }),
-    },
-    async ({ ticket_id, category }) => {
-      try {
-        const ticket = getTicketById(ticket_id);
+      } else if (name === "update_ticket_urgency") {
+        const ticket = getTicketById(args.ticket_id);
         if (!ticket) {
-          return toToolError("not_found", "Ticket not found");
+          result = toToolError("not_found", "Ticket not found");
+        } else {
+          validateUrgencyLevel({ urgency: args.urgency });
+          const updatedTicket = updateTicketFields(args.ticket_id, { urgency: args.urgency });
+          result = toToolSuccess({ ticket: updatedTicket }, "Ticket urgency updated successfully");
         }
-
-        validateTopicCategory({ category });
-        const updatedTicket = updateTicketFields(ticket_id, { category });
-        return toToolSuccess({ ticket: updatedTicket }, "Ticket category updated successfully");
-      } catch (error) {
-        if (error instanceof ApiError) {
-          return toToolError("validation_error", error.message, error.details);
-        }
-        throw error;
-      }
-    },
-  );
-
-  server.registerTool(
-    "update_ticket_confidence_score",
-    {
-      description: "Update researcher confidence score.",
-      inputSchema: z.object({
-        ticket_id: z.string(),
-        confidence_score: z.number().min(0).max(1),
-      }),
-    },
-    async ({ ticket_id, confidence_score }) => {
-      try {
-        const ticket = getTicketById(ticket_id);
+      } else if (name === "update_ticket_category") {
+        const ticket = getTicketById(args.ticket_id);
         if (!ticket) {
-          return toToolError("not_found", "Ticket not found");
+          result = toToolError("not_found", "Ticket not found");
+        } else {
+          validateTopicCategory({ category: args.category });
+          const updatedTicket = updateTicketFields(args.ticket_id, { category: args.category });
+          result = toToolSuccess({ ticket: updatedTicket }, "Ticket category updated successfully");
         }
-
-        validateResearcherConfidence({ confidence_score });
-        const updatedTicket = updateTicketFields(ticket_id, { confidence_score });
-        return toToolSuccess({ ticket: updatedTicket }, "Researcher confidence updated");
-      } catch (error) {
-        if (error instanceof ApiError) {
-          return toToolError("validation_error", error.message, error.details);
+      } else if (name === "update_ticket_confidence_score") {
+        const ticket = getTicketById(args.ticket_id);
+        if (!ticket) {
+          result = toToolError("not_found", "Ticket not found");
+        } else {
+          validateResearcherConfidence({ confidence_score: args.confidence_score });
+          const updatedTicket = updateTicketFields(args.ticket_id, { confidence_score: args.confidence_score });
+          result = toToolSuccess({ ticket: updatedTicket }, "Researcher confidence updated");
         }
-        throw error;
+      } else {
+        result = toToolError("unknown_tool", `Unknown tool: ${name}`);
       }
-    },
-  );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const errorResult = toToolError("validation_error", error.message, error.details);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorResult),
+            },
+          ],
+        };
+      }
+      throw error;
+    }
+  });
 
   return server;
 }

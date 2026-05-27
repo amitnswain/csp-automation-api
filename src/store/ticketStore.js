@@ -57,6 +57,14 @@ function listTickets(filters = {}) {
       return false;
     }
 
+    if (filters.urgency && ticket.urgency !== filters.urgency) {
+      return false;
+    }
+
+    if (filters.category && ticket.category !== filters.category) {
+      return false;
+    }
+
     if (normalizedSearch) {
       const haystack = `${ticket.subject} ${ticket.description}`.toLowerCase();
       return haystack.includes(normalizedSearch);

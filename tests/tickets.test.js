@@ -83,9 +83,12 @@ describe("IT Support Ticket API", () => {
       submitter_ref: "eve",
     });
 
-    await request(app).patch(`/tickets/${created.body.ticket_id}/status`).send({
+    const statusUpdateResponse = await request(app).patch(`/tickets/${created.body.ticket_id}/status`).send({
       status: "in_progress",
     });
+
+    expect(statusUpdateResponse.statusCode).toBe(200);
+    expect(statusUpdateResponse.body.status).toBe("in_progress");
 
     const openResponse = await request(app).get("/tickets").query({ status: "open" });
     const inProgressResponse = await request(app).get("/tickets").query({ status: "in_progress" });
