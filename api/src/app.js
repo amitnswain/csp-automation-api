@@ -1,6 +1,6 @@
 const express = require("express");
 const ticketRoutes = require("./routes/tickets");
-const mcpRoutes = require("./mcp/routes");
+const mcpRoutes = require("../../mcp-server/routes");
 const { errorHandler, notFoundHandler } = require("./errors");
 
 const app = express();

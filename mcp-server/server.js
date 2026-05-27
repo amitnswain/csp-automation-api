@@ -1,13 +1,13 @@
 const { Server } = require("@modelcontextprotocol/sdk/server/index.js");
 const { z } = require("zod");
-const { ApiError } = require("../errors");
+const { ApiError } = require("../api/src/errors");
 const {
   createTicket,
   listTickets,
   getTicketById,
   updateTicketStatus,
   updateTicketFields,
-} = require("../store/ticketStore");
+} = require("../api/src/store/ticketStore");
 const {
   validateCreateTicketBody,
   validateListFilters,
@@ -15,7 +15,7 @@ const {
   validateUrgencyLevel,
   validateTopicCategory,
   validateResearcherConfidence,
-} = require("../validation");
+} = require("../api/src/validation");
 
 // Define Zod schemas for MCP requests
 const CallToolRequestSchema = z.object({
